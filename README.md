@@ -1,0 +1,2 @@
+# music-hash-refresher
+用DeepSeek生成的一个纯前端音频hash修改器，在几乎不改变音频的情况下改变音频文件的hash
