@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>音频哈希修改器</title>
+    <meta charset="UTF-8">
+    <style>
+        body { max-width: 800px; margin: 20px auto; padding: 20px; }
+        .container { border: 1px solid #ccc; padding: 20px; border-radius: 5px; }
+        .status { margin-top: 10px; color: #666; }
+        .hash { font-family: monospace; word-break: break-all; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2>音频哈希修改器</h2>
+        <input type="file" id="audioFile" accept="audio/mpeg">
+        <div class="status" id="status"></div>
+        <div id="hashInfo" style="display: none;">
+            <p>原始哈希: <span id="originalHash" class="hash"></span></p>
+            <p>新哈希: <span id="newHash" class="hash"></span></p>
+            <a id="downloadLink" style="display: block; margin-top: 10px;">下载修改后的文件</a>
+        </div>
+    </div>
+    <h5> Code By DeepSeek and @6QHTSK </h5>
+
+    <script>
+        async function calculateHash(arrayBuffer) {
+            const hashBuffer = await crypto.subtle.digest('SHA-256', arrayBuffer);
+            const hashArray = Array.from(new Uint8Array(hashBuffer));
+            return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+        }
+
+        async function processAudio(file) {
+            const reader = new FileReader();
+            reader.readAsArrayBuffer(file);
+            
+            return new Promise((resolve) => {
+                reader.onload = async () => {
+                    // 计算原始哈希
+                    const originalArrayBuffer = reader.result;
+                    const originalHash = await calculateHash(originalArrayBuffer);
+
+                    // 创建新 ArrayBuffer（增加1字节长度）
+                    const newArrayBuffer = new ArrayBuffer(originalArrayBuffer.byteLength + 1);
+                    const newView = new Uint8Array(newArrayBuffer);
+                    
+                    // 复制原始数据
+                    newView.set(new Uint8Array(originalArrayBuffer), 0);
+                    
+                    // 在文件末尾添加一个空字节（0x00）
+                    newView[newView.length - 1] = 0x00;
+
+                    // 计算新哈希
+                    const newHash = await calculateHash(newArrayBuffer);
+
+                    resolve({
+                        originalHash,
+                        newHash,
+                        modifiedBlob: new Blob([newArrayBuffer], { type: file.type })
+                    });
+                };
+            });
+        }
+
+        document.getElementById('audioFile').addEventListener('change', async (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            // 验证文件类型
+            if (!file.type.match(/audio\/mpeg/)) {
+                alert('请选择MP3文件');
+                return;
+            }
+
+            document.getElementById('status').textContent = '处理中...';
+            
+            try {
+                const { originalHash, newHash, modifiedBlob } = await processAudio(file);
+                
+                document.getElementById('status').textContent = '处理完成！';
+                document.getElementById('hashInfo').style.display = 'block';
+                document.getElementById('originalHash').textContent = originalHash;
+                document.getElementById('newHash').textContent = newHash;
+                
+                // 创建下载链接
+                const downloadLink = document.getElementById('downloadLink');
+                downloadLink.href = URL.createObjectURL(modifiedBlob);
+                downloadLink.download = `modified_${file.name}`;
+            } catch (error) {
+                console.error(error);
+                document.getElementById('status').textContent = '处理失败，请重试';
+            }
+        });
+    </script>
+</body>
+</html>
